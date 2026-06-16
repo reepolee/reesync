@@ -233,7 +233,9 @@ pub struct DisplayItem {
 /// Build a tree from a list of diff entries.
 ///
 /// Groups entries by their parent directory, creating intermediate folder nodes.
-/// All files start pre-checked (except Deleted ones).
+/// Only Modified files start pre-checked. New files (template-only) start unchecked
+/// since they may be files the user intentionally deleted from their project.
+/// Deleted files are always unchecked and not toggleable.
 pub fn build_tree(entries: &[DiffEntry]) -> TreeNode {
     // Group entries by parent directory segments
     let mut root_children: Vec<TreeNode> = Vec::new();
@@ -265,7 +267,10 @@ fn insert_entry(children: &mut Vec<TreeNode>, full_path: &Path, state: FileState
     // We start from the last component (file name) and wrap it in folders
     // for each parent directory, then insert the whole chain.
     let file_name = components.last().unwrap().as_os_str().to_string_lossy().to_string();
-    let checked = state != FileState::Deleted;
+    // Pre-check only Modified files (exist in both, content differs).
+    // New files (template-only) start unchecked — they may be files
+    // the user intentionally deleted from their project.
+    let checked = state == FileState::Modified;
     let file_node = TreeNode::File(TreeFile {
         name: file_name,
         path: full_path.to_path_buf(),
@@ -373,7 +378,8 @@ mod tests {
         let entries = vec![entry("file.txt", FileState::New)];
         let tree = build_tree(&entries);
         assert_eq!(tree.file_count(), 1);
-        assert_eq!(tree.checked_count(), 1);
+        // New files start unchecked
+        assert_eq!(tree.checked_count(), 0);
     }
 
     #[test]
@@ -385,8 +391,8 @@ mod tests {
         ];
         let tree = build_tree(&entries);
         assert_eq!(tree.file_count(), 3);
-        // Deleted file should be unchecked
-        assert_eq!(tree.checked_count(), 2);
+        // Only Modified files are pre-checked
+        assert_eq!(tree.checked_count(), 1);
     }
 
     #[test]
@@ -397,16 +403,18 @@ mod tests {
             entry("readme.md", FileState::Modified),
         ];
         let mut tree = build_tree(&entries);
-        assert_eq!(tree.checked_count(), 3);
+        // Only Modified files are pre-checked (a.ts, readme.md)
+        assert_eq!(tree.checked_count(), 2);
 
-        // Toggle the "src" folder — should uncheck its children
+        // Toggle the "src" folder:
+        // - a.ts checked, b.ts unchecked → 1 of 2 → new_checked = true → check all
         let src_path = PathBuf::from("src");
         tree.toggle_at(&src_path);
-        assert_eq!(tree.checked_count(), 1); // only readme.md remains checked
+        assert_eq!(tree.checked_count(), 3); // a.ts + b.ts + readme.md
 
-        // Toggle again — should check all children
+        // Toggle again — all 2 checked → 2 < 2 = false → uncheck all
         tree.toggle_at(&src_path);
-        assert_eq!(tree.checked_count(), 3);
+        assert_eq!(tree.checked_count(), 1); // only readme.md remains checked
     }
 
     #[test]
@@ -453,9 +461,9 @@ mod tests {
         ];
         let tree = build_tree(&entries);
 
-        // File counts
+        // File counts — only Modified files are pre-checked
         assert_eq!(tree.file_count(), 4);
-        assert_eq!(tree.checked_count(), 4);
+        assert_eq!(tree.checked_count(), 3);
 
         // Flatten and verify structure
         let mut items = Vec::new();
@@ -512,12 +520,13 @@ mod tests {
         assert_eq!(items[10].depth, 0);
 
         // CRITICAL: Verify that collect_checked_paths returns the FULL relative paths,
-        // not just the filenames (this was the original path regression bug)
+        // not just the filenames (this was the original path regression bug).
+        // Only Modified files are pre-checked (deep.txt, deepest.ts, root.txt).
+        // New file (shallow.txt) starts unchecked.
         let mut paths = Vec::new();
         tree.collect_checked_paths(&mut paths);
-        assert_eq!(paths.len(), 4);
+        assert_eq!(paths.len(), 3);
         assert!(paths.contains(&PathBuf::from("a/b/c/deep.txt")));
-        assert!(paths.contains(&PathBuf::from("a/b/shallow.txt")));
         assert!(paths.contains(&PathBuf::from("x/y/z/w/deepest.ts")));
         assert!(paths.contains(&PathBuf::from("root.txt")));
     }

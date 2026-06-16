@@ -148,7 +148,7 @@ pub fn diff_directories(project: &Path, template: &Path) -> Result<Vec<DiffEntry
     Ok(diffs)
 }
 
-/// Run `git log -1 --format="%h %as %s"` for each differing file that exists
+/// Run `git log -1 --format="%s"` for each differing file that exists
 /// in the template, and store the result in `commit_info`.
 ///
 /// Skips files that are Deleted (don't exist in template).
@@ -177,7 +177,7 @@ pub fn enrich_commit_info(template_dir: &Path, entries: &mut [DiffEntry]) {
                 &template_dir.to_string_lossy(),
                 "log",
                 "-1",
-                "--format=%h %as %s",
+                "--format=%s",
                 "--",
                 &path_str,
             ])
