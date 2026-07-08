@@ -1,2 +1,9 @@
-/target
-*.lock
+/target/
+
+# macOS folder metadata
+.DS_Store
+
+# Release binaries left in the project root by release.sh
+reesync-linux-*
+reesync-macos-*
+reesync-windows-*.exe
