@@ -6,7 +6,7 @@
 
 **What:** A Rust CLI tool `reesync` that diffs two directories (your project and a template), shows the differing files in an interactive tree TUI with checkboxes, and copies the selected files from the template into your project.
 
-**User:** Someone maintaining a project derived from a template repo (e.g., `gsv.ree` from `reepolee/reepolee`). The template evolves upstream, and the user wants to selectively adopt changes — file by file or folder by folder — without git submodules, subtrees, or manual shell pipelines.
+**User:** Someone maintaining a project derived from a template repo (e.g., `example-project` from `reepolee/reepolee`). The template evolves upstream, and the user wants to selectively adopt changes — file by file or folder by folder — without git submodules, subtrees, or manual shell pipelines.
 
 **Success:** One command — `reesync ../template-dir` — walks the user through a visual tree of differences, lets them toggle files/folders, and copies their selection. No more `git diff --name-only > changes.txt` pipelines.
 

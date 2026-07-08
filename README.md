@@ -6,7 +6,7 @@ An interactive template file sync tool for projects derived from upstream templa
 
 ## The Problem
 
-Git can't selectively sync individual files from another repository. When you maintain a project derived from a template (e.g., `gsv.ree` from `reepolee/reepolee`), the manual pipeline is tedious:
+Git can't selectively sync individual files from another repository. When you maintain a project derived from a template (e.g., `example-project` from `reepolee/reepolee`), the manual pipeline is tedious:
 
 ```
 git diff --name-only template/main > changes.txt
@@ -94,7 +94,7 @@ reesync ../path/to/template
 ### Example
 
 ```bash
-# From inside gsv.ree, sync selected files from the upstream reepolee template
+# From inside example-project, sync selected files from the upstream reepolee template
 reesync ../reepolee
 ```
 
