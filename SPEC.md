@@ -14,7 +14,7 @@
 
 | Layer | Choice | Why |
 |-------|--------|-----|
-| Language | Rust (edition 2024) | Match existing toolchain (reefmt, sqlfmt, reemerge) |
+| Language | Rust (edition 2024) | Match existing toolchain (reefmt, reesql, reemerge) |
 | TUI framework | `ratatui` + `crossterm` | Standard Rust TUI ecosystem; mature, well-documented |
 | Tree widget | `tui-tree-widget` | Renders collapsible tree, integrates with Ratatui |
 | Checkbox | `tui-checkbox` | Toggleable checkbox widget for Ratatui |
