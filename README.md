@@ -4,6 +4,8 @@
 
 An interactive template file sync tool for projects derived from upstream templates. Selectively copy files from a template directory into your current project using a tree TUI with checkboxes.
 
+test
+
 ## The Problem
 
 Git can't selectively sync individual files from another repository. When you maintain a project derived from a template (e.g., `example-project` from `reepolee/reepolee`), the manual pipeline is tedious:
