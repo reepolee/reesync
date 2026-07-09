@@ -91,7 +91,7 @@ reesync ../path/to/template
 
 | Flag | Description |
 |------|-------------|
-| `--version`, `-V` | Print the version and exit |
+| `--version`, `-V` | Print the bare version number and exit |
 
 ### Example
 

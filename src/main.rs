@@ -26,7 +26,7 @@ fn main() -> Result<()> {
         return Ok(());
     }
     if std::env::args().any(|a| a == "--version" || a == "-V") {
-        println!("reesync {}", env!("CARGO_PKG_VERSION"));
+        println!("{}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
 
