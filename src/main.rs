@@ -12,8 +12,19 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScree
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
 
+fn executable_dir() -> Result<PathBuf> {
+    let exe = std::env::current_exe().context("Failed to determine executable path")?;
+    exe.parent()
+        .map(PathBuf::from)
+        .context("Executable path has no parent directory")
+}
+
 fn main() -> Result<()> {
     // ── Parse CLI args ──────────────────────────────────
+    if std::env::args().any(|a| a == "--where") {
+        println!("{}", executable_dir()?.display());
+        return Ok(());
+    }
     if std::env::args().any(|a| a == "--version" || a == "-V") {
         println!("reesync {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
