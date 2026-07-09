@@ -1,6 +1,6 @@
 [package]
 name = "reesync"
-version = "0.1.9"
+version = "26.7.0"
 edition = "2024"
 
 [[bin]]
