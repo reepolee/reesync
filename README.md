@@ -2,9 +2,9 @@
 
 # reesync
 
-An interactive template file sync tool for projects derived from upstream templates. Selectively copy files from a template directory into your current project using a tree TUI with checkboxes.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-test
+An interactive template file sync tool for projects derived from upstream templates. Selectively copy files from a template directory into your current project using a tree TUI with checkboxes.
 
 ## The Problem
 

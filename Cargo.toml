@@ -2,6 +2,7 @@
 name = "reesync"
 version = "26.7.1"
 edition = "2024"
+license = "MIT"
 
 [[bin]]
 name = "reesync"
