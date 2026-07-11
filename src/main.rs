@@ -5,6 +5,11 @@ mod tree;
 use std::io;
 use std::path::PathBuf;
 
+fn display_version() -> String {
+    let mut parts = env!("CARGO_PKG_VERSION").split('.');
+    format!("{}.{:02}.{}", parts.next().unwrap_or("0"), parts.next().unwrap_or("0").parse::<u32>().unwrap_or(0), parts.next().unwrap_or("0"))
+}
+
 use anyhow::{anyhow, Context, Result};
 use tree::{DisplayItem, TreeNode};
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
@@ -25,8 +30,8 @@ fn main() -> Result<()> {
         println!("{}", executable_dir()?.display());
         return Ok(());
     }
-    if std::env::args().any(|a| a == "--version" || a == "-V") {
-        println!("26.07.1");
+    if std::env::args().any(|a| a == "--version" || a == "-v" || a == "-V") {
+        println!("{}", display_version());
         return Ok(());
     }
 
