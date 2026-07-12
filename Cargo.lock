@@ -450,7 +450,7 @@ dependencies = [
 
 [[package]]
 name = "reesync"
-version = "26.7.5"
+version = "26.7.6"
 dependencies = [
  "anyhow",
  "crossterm",
