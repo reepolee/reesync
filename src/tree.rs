@@ -112,6 +112,34 @@ impl TreeNode {
 
 
 
+    /// Record the collapsed folders (path -> not expanded) into `out`. Used to
+    /// preserve expand/collapse state across a tree rebuild (e.g. after an `i`
+    /// toggle re-diffs); folders default to expanded, so we only track the ones
+    /// the user explicitly collapsed.
+    pub fn collect_collapsed(&self, out: &mut Vec<PathBuf>) {
+        if let TreeNode::Folder(d) = self {
+            if !d.expanded {
+                out.push(d.path.clone());
+            }
+            for child in &d.children {
+                child.collect_collapsed(out);
+            }
+        }
+    }
+
+    /// Re-collapse the folders whose paths are in `collapsed`, restoring state
+    /// captured by `collect_collapsed` after a rebuild.
+    pub fn apply_collapsed(&mut self, collapsed: &[PathBuf]) {
+        if let TreeNode::Folder(d) = self {
+            if collapsed.iter().any(|p| p == &d.path) {
+                d.expanded = false;
+            }
+            for child in &mut d.children {
+                child.apply_collapsed(collapsed);
+            }
+        }
+    }
+
     /// Collect every descendant file path (regardless of checked state).
     pub fn collect_all_file_paths(&self, paths: &mut Vec<PathBuf>) {
         match self {
@@ -421,6 +449,33 @@ mod tests {
         assert_eq!(tree.file_count(), 1);
         // New files start unchecked
         assert_eq!(tree.checked_count(), 0);
+    }
+
+    #[test]
+    fn test_collapsed_state_roundtrip() {
+        // Collapse one folder, snapshot, rebuild, restore -> that folder stays
+        // collapsed while others stay expanded (the i-toggle rebuild path).
+        let entries = vec![
+            entry("config/a.ts", FileState::Modified),
+            entry("src/lib/b.ts", FileState::New),
+        ];
+        let mut tree = build_tree(&entries);
+        tree.toggle_expand_at(Path::new("config"));
+
+        let mut collapsed = Vec::new();
+        tree.collect_collapsed(&mut collapsed);
+        assert_eq!(collapsed, vec![PathBuf::from("config")]);
+
+        // Fresh rebuild (all expanded), then restore.
+        let mut rebuilt = build_tree(&entries);
+        let mut before = Vec::new();
+        rebuilt.collect_collapsed(&mut before);
+        assert!(before.is_empty(), "fresh build should have nothing collapsed");
+
+        rebuilt.apply_collapsed(&collapsed);
+        let mut after = Vec::new();
+        rebuilt.collect_collapsed(&mut after);
+        assert_eq!(after, vec![PathBuf::from("config")]);
     }
 
     #[test]

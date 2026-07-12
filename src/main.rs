@@ -250,10 +250,15 @@ fn run_tui(
 
                                         // Re-diff so ignore changes re-apply to every
                                         // entry, then rebuild the tree and re-flatten.
+                                        // Preserve the user's expand/collapse state -
+                                        // build_tree defaults every folder to expanded.
                                         let selected_idx = list_state.selected();
+                                        let mut collapsed = Vec::new();
+                                        root.collect_collapsed(&mut collapsed);
                                         let mut entries = diff::diff_directories(project_path, template_path, &ignore)?;
                                         diff::enrich_commit_info(template_path, &mut entries);
                                         root = tree::build_tree(&entries);
+                                        root.apply_collapsed(&collapsed);
                                         total_files = root.file_count();
                                         items.clear();
                                         root.flatten(0, &mut items);
