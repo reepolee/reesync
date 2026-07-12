@@ -1,6 +1,6 @@
 [package]
 name = "reesync"
-version = "26.7.6"
+version = "26.7.7"
 edition = "2024"
 license = "MIT"
 
