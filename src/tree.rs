@@ -15,6 +15,8 @@ pub struct TreeFile {
     pub path: PathBuf,
     pub state: FileState,
     pub checked: bool,
+    /// Matches a `.reesyncignore` pattern - rendered dimmed and pre-unchecked.
+    pub ignored: bool,
     /// Last commit info from template repo: "abc1234 2026-06-15 Fix message"
     pub commit_info: Option<String>,
 }
@@ -140,6 +142,7 @@ impl TreeNode {
                     is_expanded: false,
                     state: f.state,
                     checked: f.checked,
+                    ignored: f.ignored,
                     total_count: 0,
                     checked_count: 0,
                     commit_info: f.commit_info.clone(),
@@ -164,6 +167,7 @@ impl TreeNode {
                     is_expanded: d.expanded,
                     state: FileState::Modified,
                     checked: checked > 0,
+                    ignored: false,
                     total_count: total,
                     checked_count: checked,
                     commit_info: None,
@@ -222,6 +226,8 @@ pub struct DisplayItem {
     pub is_expanded: bool,
     pub state: FileState,
     pub checked: bool,
+    /// Matches a `.reesyncignore` pattern (files only; always false for folders).
+    pub ignored: bool,
     /// For folders: total number of descendant files
     pub total_count: usize,
     /// For folders: number of checked descendant files
@@ -241,7 +247,7 @@ pub fn build_tree(entries: &[DiffEntry]) -> TreeNode {
     let mut root_children: Vec<TreeNode> = Vec::new();
 
     for entry in entries {
-        insert_entry(&mut root_children, &entry.relative_path, entry.state, entry.commit_info.clone());
+        insert_entry(&mut root_children, &entry.relative_path, entry.state, entry.ignored, entry.commit_info.clone());
     }
 
     // Sort: folders first, then by name
@@ -257,7 +263,7 @@ pub fn build_tree(entries: &[DiffEntry]) -> TreeNode {
 
 /// Insert a single diff entry into the tree, creating intermediate folder nodes as needed.
 /// Preserves the full relative path in file nodes, even for nested files.
-fn insert_entry(children: &mut Vec<TreeNode>, full_path: &Path, state: FileState, commit_info: Option<String>) {
+fn insert_entry(children: &mut Vec<TreeNode>, full_path: &Path, state: FileState, ignored: bool, commit_info: Option<String>) {
     let components: Vec<_> = full_path.components().collect();
     if components.is_empty() {
         return;
@@ -270,12 +276,14 @@ fn insert_entry(children: &mut Vec<TreeNode>, full_path: &Path, state: FileState
     // Pre-check only Modified files (exist in both, content differs).
     // New files (template-only) start unchecked — they may be files
     // the user intentionally deleted from their project.
-    let checked = state == FileState::Modified;
+    // An ignored file is always pre-unchecked, whatever its state.
+    let checked = state == FileState::Modified && !ignored;
     let file_node = TreeNode::File(TreeFile {
         name: file_name,
         path: full_path.to_path_buf(),
         state,
         checked,
+        ignored,
         commit_info,
     });
 
@@ -370,6 +378,7 @@ mod tests {
             relative_path: PathBuf::from(path),
             state,
             commit_info: None,
+            ignored: false,
         }
     }
 

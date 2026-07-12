@@ -1,9 +1,12 @@
 mod diff;
+mod ignore_list;
 mod sync;
 mod tree;
 
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+use ignore_list::IgnoreList;
 
 fn display_version() -> String {
     let mut parts = env!("CARGO_PKG_VERSION").split('.');
@@ -46,9 +49,12 @@ fn main() -> Result<()> {
 
     let project_path = std::env::current_dir().context("Failed to get current directory")?;
 
+    // ── Load .reesyncignore (clone-owned skip-list) ─────
+    let ignore = IgnoreList::load(&project_path)?;
+
     // ── Diff the directories ────────────────────────────
     println!("→ Walking directories and comparing files...");
-    let mut entries = diff::diff_directories(&project_path, template_path)?;
+    let mut entries = diff::diff_directories(&project_path, template_path, &ignore)?;
 
     if entries.is_empty() {
         println!("  No differences found. Template is in sync with project.");
@@ -72,7 +78,7 @@ fn main() -> Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let result = run_tui(&mut terminal, root, total_files, &template_dir);
+    let result = run_tui(&mut terminal, root, total_files, &template_dir, &project_path, template_path, ignore);
 
     // ── Restore terminal ────────────────────────────────
     disable_raw_mode()?;
@@ -105,8 +111,11 @@ fn main() -> Result<()> {
 fn run_tui(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     mut root: TreeNode,
-    total_files: usize,
+    mut total_files: usize,
     template_dir: &str,
+    project_path: &Path,
+    template_path: &Path,
+    mut ignore: IgnoreList,
 ) -> Result<Vec<PathBuf>> {
     let mut list_state = ListState::default();
     let mut items: Vec<DisplayItem> = Vec::new();
@@ -115,11 +124,14 @@ fn run_tui(
         list_state.select(Some(0));
     }
 
+    // Transient one-line status shown in the footer (e.g. glob-match notice).
+    let mut status: Option<String> = None;
+
     loop {
         // Render
         terminal.draw(|frame| {
             let area = frame.area();
-            render_ui(frame, area, &items, &mut list_state, total_files, template_dir);
+            render_ui(frame, area, &items, &mut list_state, total_files, template_dir, status.as_deref());
         })?;
 
         // Handle input
@@ -171,6 +183,7 @@ fn run_tui(
                         }
                     }
                     KeyCode::Char(' ') => {
+                        status = None;
                         if let Some(selected) = list_state.selected() {
                             if selected < items.len() {
                                 let path = items[selected].path.clone();
@@ -178,6 +191,47 @@ fn run_tui(
                                     root.toggle_at(&path);
                                     items.clear();
                                     root.flatten(0, &mut items);
+                                }
+                            }
+                        }
+                    }
+                    // `i` — toggle the highlighted FILE in .reesyncignore. Only
+                    // exact-path lines are managed; a file ignored by a broader
+                    // glob shows a notice instead (edit the file by hand).
+                    KeyCode::Char('i') => {
+                        status = None;
+                        if let Some(selected) = list_state.selected() {
+                            if selected < items.len() {
+                                let item = &items[selected];
+                                let path = item.path.clone();
+                                if !item.is_folder && path != PathBuf::from("/") {
+                                    if let Some(glob) = ignore.matching_glob(&path) {
+                                        status = Some(format!(
+                                            "ignored by pattern '{}' — edit .reesyncignore to change",
+                                            glob
+                                        ));
+                                    } else if ignore.has_exact(&path) {
+                                        ignore.remove_exact(&path)?;
+                                    } else {
+                                        ignore.add_exact(&path)?;
+                                    }
+
+                                    // Re-diff so ignore changes re-apply to every
+                                    // entry, then rebuild the tree and re-flatten.
+                                    let selected_idx = list_state.selected();
+                                    let mut entries = diff::diff_directories(project_path, template_path, &ignore)?;
+                                    diff::enrich_commit_info(template_path, &mut entries);
+                                    root = tree::build_tree(&entries);
+                                    total_files = root.file_count();
+                                    items.clear();
+                                    root.flatten(0, &mut items);
+                                    // Keep the cursor in range after the rebuild.
+                                    if items.is_empty() {
+                                        list_state.select(None);
+                                    } else {
+                                        let idx = selected_idx.unwrap_or(0).min(items.len() - 1);
+                                        list_state.select(Some(idx));
+                                    }
                                 }
                             }
                         }
@@ -202,6 +256,7 @@ fn render_ui(
     list_state: &mut ListState,
     total_files: usize,
     template_dir: &str,
+    status: Option<&str>,
 ) {
     // ── Layout ──────────────────────────────────────────
     let chunks = Layout::default()
@@ -258,6 +313,7 @@ fn render_ui(
 
             let state_suffix = match item.state {
                 diff::FileState::Deleted => "  (deleted)".to_string(),
+                _ if item.ignored => "  (ignored)".to_string(),
                 _ => String::new(),
             };
 
@@ -266,9 +322,11 @@ fn render_ui(
                 _ => String::new(),
             };
 
-            let style = match item.state {
-                diff::FileState::Deleted => Style::default().fg(Color::DarkGray),
-                _ => Style::default(),
+            // Deleted and ignored rows are dimmed (informational / pre-skipped).
+            let style = if item.state == diff::FileState::Deleted || item.ignored {
+                Style::default().fg(Color::DarkGray)
+            } else {
+                Style::default()
             };
 
             let text = format!(
@@ -291,15 +349,21 @@ fn render_ui(
     frame.render_stateful_widget(list, chunks[1], list_state);
 
     // ── Status bar ──────────────────────────────────────
-    let checked_count = count_checked(items);
-    let status_text = format!(
-        " {}  │  ↑↓ nav  space toggle  → expand  ← collapse  enter sync  q quit",
-        if checked_count == 0 {
-            "No files selected".to_string()
-        } else {
-            format!("{} files selected", checked_count)
-        }
-    );
+    // A transient status message (e.g. glob-ignore notice) takes over the bar;
+    // otherwise show the selection count and key hints.
+    let status_text = if let Some(msg) = status {
+        format!(" {}", msg)
+    } else {
+        let checked_count = count_checked(items);
+        format!(
+            " {}  │  ↑↓ nav  space toggle  i ignore  → expand  ← collapse  enter sync  q quit",
+            if checked_count == 0 {
+                "No files selected".to_string()
+            } else {
+                format!("{} files selected", checked_count)
+            }
+        )
+    };
     let status_bar = Paragraph::new(status_text)
         .style(Style::default().fg(Color::Yellow).bg(Color::Black));
     frame.render_widget(status_bar, chunks[2]);

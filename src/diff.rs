@@ -24,6 +24,8 @@ pub struct DiffEntry {
     pub state: FileState,
     /// Last commit info from the template repo (hash, date, subject).
     pub commit_info: Option<String>,
+    /// Matches a `.reesyncignore` pattern - shown but pre-unchecked (not hidden).
+    pub ignored: bool,
 }
 
 /// Directories to skip when walking (common noise).
@@ -91,7 +93,7 @@ fn hash_file(path: &Path) -> Result<Vec<u8>> {
 /// - Files in template but not project (New)
 /// - Files in both with different content (Modified)
 /// - Files in project but not template (Deleted)
-pub fn diff_directories(project: &Path, template: &Path) -> Result<Vec<DiffEntry>> {
+pub fn diff_directories(project: &Path, template: &Path, ignore: &crate::ignore_list::IgnoreList) -> Result<Vec<DiffEntry>> {
     let project_files = walk_files(project)?;
     let template_files = walk_files(template)?;
 
@@ -117,6 +119,7 @@ pub fn diff_directories(project: &Path, template: &Path) -> Result<Vec<DiffEntry
             relative_path: path.clone(),
             state: FileState::New,
             commit_info: None,
+            ignored: ignore.is_ignored(path),
         });
     }
 
@@ -126,6 +129,7 @@ pub fn diff_directories(project: &Path, template: &Path) -> Result<Vec<DiffEntry
             relative_path: path.clone(),
             state: FileState::Deleted,
             commit_info: None,
+            ignored: ignore.is_ignored(path),
         });
     }
 
@@ -138,6 +142,7 @@ pub fn diff_directories(project: &Path, template: &Path) -> Result<Vec<DiffEntry
                 relative_path: path.clone(),
                 state: FileState::Modified,
                 commit_info: None,
+                ignored: ignore.is_ignored(path),
             });
         }
     }
@@ -219,10 +224,16 @@ mod tests {
         fs::write(path, content).unwrap();
     }
 
+    /// An empty ignore list (loaded from a fresh temp dir with no ignore file).
+    fn no_ignore() -> crate::ignore_list::IgnoreList {
+        let dir = tempfile::tempdir().unwrap();
+        crate::ignore_list::IgnoreList::load(dir.path()).unwrap()
+    }
+
     #[test]
     fn test_empty_dirs_no_diff() {
         let (_dir, project, template) = setup_temp_dirs();
-        let diffs = diff_directories(&project, &template).unwrap();
+        let diffs = diff_directories(&project, &template, &no_ignore()).unwrap();
         assert!(diffs.is_empty());
     }
 
@@ -230,7 +241,7 @@ mod tests {
     fn test_new_file_in_template() {
         let (_dir, project, template) = setup_temp_dirs();
         create_file(&template.join("new.txt"), "hello");
-        let diffs = diff_directories(&project, &template).unwrap();
+        let diffs = diff_directories(&project, &template, &no_ignore()).unwrap();
         assert_eq!(diffs.len(), 1);
         assert_eq!(diffs[0].relative_path, PathBuf::from("new.txt"));
         assert_eq!(diffs[0].state, FileState::New);
@@ -240,7 +251,7 @@ mod tests {
     fn test_deleted_file_in_project() {
         let (_dir, project, template) = setup_temp_dirs();
         create_file(&project.join("old.txt"), "bye");
-        let diffs = diff_directories(&project, &template).unwrap();
+        let diffs = diff_directories(&project, &template, &no_ignore()).unwrap();
         assert_eq!(diffs.len(), 1);
         assert_eq!(diffs[0].relative_path, PathBuf::from("old.txt"));
         assert_eq!(diffs[0].state, FileState::Deleted);
@@ -251,7 +262,7 @@ mod tests {
         let (_dir, project, template) = setup_temp_dirs();
         create_file(&project.join("file.txt"), "original");
         create_file(&template.join("file.txt"), "changed");
-        let diffs = diff_directories(&project, &template).unwrap();
+        let diffs = diff_directories(&project, &template, &no_ignore()).unwrap();
         assert_eq!(diffs.len(), 1);
         assert_eq!(diffs[0].relative_path, PathBuf::from("file.txt"));
         assert_eq!(diffs[0].state, FileState::Modified);
@@ -262,7 +273,7 @@ mod tests {
         let (_dir, project, template) = setup_temp_dirs();
         create_file(&project.join("file.txt"), "same");
         create_file(&template.join("file.txt"), "same");
-        let diffs = diff_directories(&project, &template).unwrap();
+        let diffs = diff_directories(&project, &template, &no_ignore()).unwrap();
         assert!(diffs.is_empty());
     }
 
@@ -271,7 +282,7 @@ mod tests {
         let (_dir, project, template) = setup_temp_dirs();
         create_file(&project.join("src/lib/helper.ts"), "project version");
         create_file(&template.join("src/lib/helper.ts"), "template version");
-        let diffs = diff_directories(&project, &template).unwrap();
+        let diffs = diff_directories(&project, &template, &no_ignore()).unwrap();
         assert_eq!(diffs.len(), 1);
         assert_eq!(diffs[0].relative_path, PathBuf::from("src/lib/helper.ts"));
         assert_eq!(diffs[0].state, FileState::Modified);
@@ -282,7 +293,7 @@ mod tests {
         let (_dir, project, template) = setup_temp_dirs();
         create_file(&template.join(".git/config"), "git config");
         create_file(&template.join("actual.txt"), "real file");
-        let diffs = diff_directories(&project, &template).unwrap();
+        let diffs = diff_directories(&project, &template, &no_ignore()).unwrap();
         // Should only find actual.txt, not .git/config
         assert_eq!(diffs.len(), 1);
         assert_eq!(diffs[0].relative_path, PathBuf::from("actual.txt"));
@@ -302,7 +313,7 @@ mod tests {
         create_file(&project.join("same.txt"), "same");
         create_file(&template.join("same.txt"), "same");
 
-        let diffs = diff_directories(&project, &template).unwrap();
+        let diffs = diff_directories(&project, &template, &no_ignore()).unwrap();
         assert_eq!(diffs.len(), 3);
 
         let states: Vec<FileState> = diffs.iter().map(|d| d.state).collect();
