@@ -204,33 +204,66 @@ fn run_tui(
                             if selected < items.len() {
                                 let item = &items[selected];
                                 let path = item.path.clone();
-                                if !item.is_folder && path != PathBuf::from("/") {
-                                    if let Some(glob) = ignore.matching_glob(&path) {
-                                        status = Some(format!(
-                                            "ignored by pattern '{}' — edit .reesyncignore to change",
-                                            glob
-                                        ));
-                                    } else if ignore.has_exact(&path) {
-                                        ignore.remove_exact(&path)?;
+                                if path != PathBuf::from("/") {
+                                    // Target files: one file, or every file under a
+                                    // folder (folder `i` toggles them as a group).
+                                    let targets: Vec<PathBuf> = if item.is_folder {
+                                        root.file_paths_at(&path)
                                     } else {
-                                        ignore.add_exact(&path)?;
-                                    }
+                                        vec![path.clone()]
+                                    };
 
-                                    // Re-diff so ignore changes re-apply to every
-                                    // entry, then rebuild the tree and re-flatten.
-                                    let selected_idx = list_state.selected();
-                                    let mut entries = diff::diff_directories(project_path, template_path, &ignore)?;
-                                    diff::enrich_commit_info(template_path, &mut entries);
-                                    root = tree::build_tree(&entries);
-                                    total_files = root.file_count();
-                                    items.clear();
-                                    root.flatten(0, &mut items);
-                                    // Keep the cursor in range after the rebuild.
-                                    if items.is_empty() {
-                                        list_state.select(None);
+                                    // Files matched only by a broader glob can't be
+                                    // toggled by exact line (Q1a) - skip them, and
+                                    // report if that's ALL a single file was.
+                                    let toggleable: Vec<PathBuf> = targets
+                                        .iter()
+                                        .filter(|p| ignore.matching_glob(p).is_none())
+                                        .cloned()
+                                        .collect();
+
+                                    if toggleable.is_empty() {
+                                        if !item.is_folder {
+                                            if let Some(glob) = ignore.matching_glob(&path) {
+                                                status = Some(format!(
+                                                    "ignored by pattern '{}' — edit .reesyncignore to change",
+                                                    glob
+                                                ));
+                                            }
+                                        } else {
+                                            status = Some(
+                                                "all files here are ignored by a pattern — edit .reesyncignore to change".to_string(),
+                                            );
+                                        }
                                     } else {
-                                        let idx = selected_idx.unwrap_or(0).min(items.len() - 1);
-                                        list_state.select(Some(idx));
+                                        // Toggle as a group: if every toggleable file
+                                        // is already ignored, un-ignore all; else
+                                        // ignore the ones not yet ignored.
+                                        let all_ignored = toggleable.iter().all(|p| ignore.has_exact(p));
+                                        for p in &toggleable {
+                                            if all_ignored {
+                                                ignore.remove_exact(p)?;
+                                            } else if !ignore.has_exact(p) {
+                                                ignore.add_exact(p)?;
+                                            }
+                                        }
+
+                                        // Re-diff so ignore changes re-apply to every
+                                        // entry, then rebuild the tree and re-flatten.
+                                        let selected_idx = list_state.selected();
+                                        let mut entries = diff::diff_directories(project_path, template_path, &ignore)?;
+                                        diff::enrich_commit_info(template_path, &mut entries);
+                                        root = tree::build_tree(&entries);
+                                        total_files = root.file_count();
+                                        items.clear();
+                                        root.flatten(0, &mut items);
+                                        // Keep the cursor in range after the rebuild.
+                                        if items.is_empty() {
+                                            list_state.select(None);
+                                        } else {
+                                            let idx = selected_idx.unwrap_or(0).min(items.len() - 1);
+                                            list_state.select(Some(idx));
+                                        }
                                     }
                                 }
                             }

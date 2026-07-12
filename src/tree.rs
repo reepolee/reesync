@@ -112,6 +112,38 @@ impl TreeNode {
 
 
 
+    /// Collect every descendant file path (regardless of checked state).
+    pub fn collect_all_file_paths(&self, paths: &mut Vec<PathBuf>) {
+        match self {
+            TreeNode::File(f) => paths.push(f.path.clone()),
+            TreeNode::Folder(d) => {
+                for child in &d.children {
+                    child.collect_all_file_paths(paths);
+                }
+            }
+        }
+    }
+
+    /// All descendant file paths under the node at `path`. Used by folder-level
+    /// `i`: collect every file under the highlighted folder so they can be
+    /// ignored/un-ignored as a group. Empty if `path` is not found.
+    pub fn file_paths_at(&self, path: &Path) -> Vec<PathBuf> {
+        if self.path() == path {
+            let mut out = Vec::new();
+            self.collect_all_file_paths(&mut out);
+            return out;
+        }
+        if let TreeNode::Folder(d) = self {
+            for child in &d.children {
+                let found = child.file_paths_at(path);
+                if !found.is_empty() {
+                    return found;
+                }
+            }
+        }
+        Vec::new()
+    }
+
     /// Collect file paths that are checked, recursively.
     pub fn collect_checked_paths(&self, paths: &mut Vec<PathBuf>) {
         match self {
@@ -389,6 +421,28 @@ mod tests {
         assert_eq!(tree.file_count(), 1);
         // New files start unchecked
         assert_eq!(tree.checked_count(), 0);
+    }
+
+    #[test]
+    fn test_file_paths_at_folder() {
+        // A folder with two files plus an unrelated root file. Folder `i` should
+        // collect exactly the two files under the folder, not the root one.
+        let entries = vec![
+            entry("config/a.ts", FileState::Modified),
+            entry("config/nested/b.ts", FileState::New),
+            entry("root.txt", FileState::Modified),
+        ];
+        let tree = build_tree(&entries);
+
+        let mut under_config = tree.file_paths_at(Path::new("config"));
+        under_config.sort();
+        assert_eq!(
+            under_config,
+            vec![PathBuf::from("config/a.ts"), PathBuf::from("config/nested/b.ts")]
+        );
+
+        // A path that does not exist yields no files.
+        assert!(tree.file_paths_at(Path::new("does/not/exist")).is_empty());
     }
 
     #[test]
