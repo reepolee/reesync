@@ -187,11 +187,9 @@ fn run_tui(
                         if let Some(selected) = list_state.selected() {
                             if selected < items.len() {
                                 let path = items[selected].path.clone();
-                                if path != PathBuf::from("/") {
-                                    root.toggle_at(&path);
-                                    items.clear();
-                                    root.flatten(0, &mut items);
-                                }
+                                root.toggle_at(&path);
+                                items.clear();
+                                root.flatten(0, &mut items);
                             }
                         }
                     }
@@ -321,13 +319,20 @@ fn render_ui(
     let list_items: Vec<ListItem> = items
         .iter()
         .map(|item| {
+            let is_global = item.path == PathBuf::from("/");
             let indent = "  ".repeat(item.depth);
             let icon = if item.is_folder {
-                if item.is_expanded { "📂" } else { "📁" }
+                if is_global {
+                    "🌐"
+                } else if item.is_expanded {
+                    "📂"
+                } else {
+                    "📁"
+                }
             } else {
                 "📄"
             };
-            let expand = if item.is_folder {
+            let expand = if item.is_folder && !is_global {
                 if item.is_expanded { "[-] " } else { "[+] " }
             } else {
                 ""
@@ -377,7 +382,7 @@ fn render_ui(
         .collect();
 
     let list = List::new(list_items)
-        .block(Block::default().borders(Borders::ALL).title(" Files "))
+        .block(Block::default().borders(Borders::ALL).title(" Folders and files "))
         .highlight_style(
             Style::default()
                 .bg(Color::DarkGray)

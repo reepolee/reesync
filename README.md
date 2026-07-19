@@ -76,7 +76,7 @@ reesync /tmp/reepolee-new
 
 1. **Diff** — reesync walks both directories and identifies differing files
 2. **Browse tree** — navigate the file tree with arrow keys
-3. **Toggle files** — press space to check/uncheck files. New/modified files are pre-checked; deleted files (`[─] (deleted)`) are informational only and can never be copied
+3. **Toggle files** — use the top `GLOBAL` checkbox to select or clear every folder, or press space on an individual item. New/modified files are pre-checked; deleted files (`[─] (deleted)`) are informational only and can never be copied
 4. **Ignore** — press `i` to add/remove the highlighted file in `.reesyncignore`
 5. **Confirm** — press Enter to copy selected files into your project
 6. **Done** — progress is shown per file

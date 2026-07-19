@@ -59,6 +59,17 @@ impl TreeNode {
         }
     }
 
+    /// Get the number of files that can be selected for syncing.
+    pub fn selectable_file_count(&self) -> usize {
+        match self {
+            TreeNode::File(f) => usize::from(f.state != FileState::Deleted),
+            TreeNode::Folder(d) => {
+                let children = d.children.iter();
+                children.map(|c| c.selectable_file_count()).sum()
+            }
+        }
+    }
+
     /// Get the count of checked files.
     pub fn checked_count(&self) -> usize {
         match self {
@@ -81,7 +92,8 @@ impl TreeNode {
             }
             TreeNode::Folder(d) => {
                 // Toggle folder: compute desired state based on current state
-                let total = d.children.iter().map(|c| c.file_count()).sum::<usize>();
+                let children = d.children.iter();
+                let total = children.map(|c| c.selectable_file_count()).sum::<usize>();
                 let checked = d.children.iter().map(|c| c.checked_count()).sum::<usize>();
                 // If any are unchecked → check all; if all checked → uncheck all
                 let new_checked = checked < total;
@@ -209,15 +221,32 @@ impl TreeNode {
                 });
             }
             TreeNode::Folder(d) => {
-                // Skip the artificial root node (path "/") for display purposes
+                // Render the artificial root node as the GLOBAL selection control.
                 if d.path == Path::new("/") && depth == 0 {
+                    let children = d.children.iter();
+                    let total = children.map(|c| c.selectable_file_count()).sum::<usize>();
+                    let checked = d.children.iter().map(|c| c.checked_count()).sum::<usize>();
+                    result.push(DisplayItem {
+                        path: d.path.clone(),
+                        depth: 0,
+                        label: "GLOBAL".to_string(),
+                        is_folder: true,
+                        is_expanded: false,
+                        state: FileState::Modified,
+                        checked: checked > 0,
+                        ignored: false,
+                        total_count: total,
+                        checked_count: checked,
+                        commit_info: None,
+                    });
                     for child in &d.children {
                         child.flatten(0, result);
                     }
                     return;
                 }
 
-                let total = d.children.iter().map(|c| c.file_count()).sum::<usize>();
+                let children = d.children.iter();
+                let total = children.map(|c| c.selectable_file_count()).sum::<usize>();
                 let checked = d.children.iter().map(|c| c.checked_count()).sum::<usize>();
                 result.push(DisplayItem {
                     path: d.path.clone(),
