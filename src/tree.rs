@@ -240,7 +240,7 @@ impl TreeNode {
                         commit_info: None,
                     });
                     for child in &d.children {
-                        child.flatten(0, result);
+                        child.flatten(depth + 1, result);
                     }
                     return;
                 }
@@ -584,16 +584,17 @@ mod tests {
         let tree = build_tree(&entries);
         let mut items = Vec::new();
         tree.flatten(0, &mut items);
-        // Should have: src (folder), a.ts, b.ts, readme.md (root / is skipped)
-        assert_eq!(items.len(), 4);
-        // First item should be "src" folder
-        assert!(items[0].is_folder);
-        assert_eq!(items[0].label, "src");
+        // GLOBAL comes first, followed by src, a.ts, b.ts, and readme.md.
+        assert_eq!(items.len(), 5);
+        assert_eq!(items[0].label, "GLOBAL");
+        assert!(items[1].is_folder);
+        assert_eq!(items[1].label, "src");
+        assert_eq!(items[1].depth, 1);
         // Then files inside src
-        assert_eq!(items[1].label, "a.ts");
-        assert_eq!(items[2].label, "b.ts");
+        assert_eq!(items[2].label, "a.ts");
+        assert_eq!(items[3].label, "b.ts");
         // Then root-level file
-        assert_eq!(items[3].label, "readme.md");
+        assert_eq!(items[4].label, "readme.md");
     }
 
     #[test]
@@ -616,55 +617,55 @@ mod tests {
         let mut items = Vec::new();
         tree.flatten(0, &mut items);
 
-        // Root is skipped, so we get: a, b, c, deep.txt, shallow.txt, x, y, z, w, deepest.ts, root.txt
-        assert_eq!(items.len(), 11);
+        // GLOBAL comes first, followed by the tree contents.
+        assert_eq!(items.len(), 12);
 
         // Verify folder nesting: a/b/c/deep.txt
-        assert_eq!(items[0].label, "a");
-        assert!(items[0].is_folder);
-        assert_eq!(items[0].depth, 0);
-
-        assert_eq!(items[1].label, "b");
+        assert_eq!(items[1].label, "a");
         assert!(items[1].is_folder);
         assert_eq!(items[1].depth, 1);
 
-        assert_eq!(items[2].label, "c");
+        assert_eq!(items[2].label, "b");
         assert!(items[2].is_folder);
         assert_eq!(items[2].depth, 2);
 
-        assert_eq!(items[3].label, "deep.txt");
-        assert!(!items[3].is_folder);
+        assert_eq!(items[3].label, "c");
+        assert!(items[3].is_folder);
         assert_eq!(items[3].depth, 3);
 
-        assert_eq!(items[4].label, "shallow.txt");
+        assert_eq!(items[4].label, "deep.txt");
         assert!(!items[4].is_folder);
-        assert_eq!(items[4].depth, 2);
+        assert_eq!(items[4].depth, 4);
+
+        assert_eq!(items[5].label, "shallow.txt");
+        assert!(!items[5].is_folder);
+        assert_eq!(items[5].depth, 3);
 
         // 4 levels deep: x/y/z/w/deepest.ts
-        assert_eq!(items[5].label, "x");
-        assert!(items[5].is_folder);
-        assert_eq!(items[5].depth, 0);
-
-        assert_eq!(items[6].label, "y");
+        assert_eq!(items[6].label, "x");
         assert!(items[6].is_folder);
         assert_eq!(items[6].depth, 1);
 
-        assert_eq!(items[7].label, "z");
+        assert_eq!(items[7].label, "y");
         assert!(items[7].is_folder);
         assert_eq!(items[7].depth, 2);
 
-        assert_eq!(items[8].label, "w");
+        assert_eq!(items[8].label, "z");
         assert!(items[8].is_folder);
         assert_eq!(items[8].depth, 3);
 
-        assert_eq!(items[9].label, "deepest.ts");
-        assert!(!items[9].is_folder);
+        assert_eq!(items[9].label, "w");
+        assert!(items[9].is_folder);
         assert_eq!(items[9].depth, 4);
 
-        // Root-level file
-        assert_eq!(items[10].label, "root.txt");
+        assert_eq!(items[10].label, "deepest.ts");
         assert!(!items[10].is_folder);
-        assert_eq!(items[10].depth, 0);
+        assert_eq!(items[10].depth, 5);
+
+        // Root-level file
+        assert_eq!(items[11].label, "root.txt");
+        assert!(!items[11].is_folder);
+        assert_eq!(items[11].depth, 1);
 
         // CRITICAL: Verify that collect_checked_paths returns the FULL relative paths,
         // not just the filenames (this was the original path regression bug).
@@ -687,8 +688,9 @@ mod tests {
         let tree = build_tree(&entries);
         let mut items = Vec::new();
         tree.flatten(0, &mut items);
-        // items[0] should be a_folder (folder), items[1] should be z_file.txt (file)
-        assert!(items[0].is_folder, "Expected items[0] to be a folder, got: {}", items[0].label);
-        assert!(!items[1].is_folder, "Expected items[1] to be a file, got: {}", items[1].label);
+        // GLOBAL is first, then a_folder (folder), then z_file.txt (file).
+        assert_eq!(items[0].label, "GLOBAL");
+        assert!(items[1].is_folder, "Expected items[1] to be a folder, got: {}", items[1].label);
+        assert!(!items[2].is_folder, "Expected items[2] to be a file, got: {}", items[2].label);
     }
 }
