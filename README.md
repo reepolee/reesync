@@ -8,18 +8,18 @@ An interactive tool for bringing a project up to date with a newer version of th
 
 ## The Problem
 
-Git can't selectively sync individual files from another directory. When a new starter is published and you want only some of its changes, the manual pipeline is tedious and error-prone — diff by hand, decide file by file, copy each one across, and re-decide the same skip-list next time.
+Git can't selectively sync individual files from another directory. When a new starter is published and you want only some of its changes, the manual pipeline is tedious and error-prone - diff by hand, decide file by file, copy each one across, and re-decide the same skip-list next time.
 
 reesync replaces this with a single command and an interactive file browser.
 
 ## Features
 
-- **Directory diffing** — compares your project against the newer starter, finding new, modified, and deleted files by SHA-256 content hash
-- **Tree view TUI** — navigate the diff with a collapsible tree, toggle files and folders with checkboxes
-- **Smart defaults** — new/modified files pre-checked, deleted files shown as informational
-- **`.reesyncignore`** — a versioned, project-owned skip-list so per-project files are never adopted by accident
-- **Commit context** — when the source is a git repo, each row shows the subject of the last commit that touched the file
-- **Batch copy** — copies selected files into your project with progress display
+- **Directory diffing** - compares your project against the newer starter, finding new, modified, and deleted files by SHA-256 content hash
+- **Tree view TUI** - navigate the diff with a collapsible tree, toggle files and folders with checkboxes
+- **Smart defaults** - new/modified files pre-checked, deleted files shown as informational
+- **`.reesyncignore`** - a versioned, project-owned skip-list so per-project files are never adopted by accident
+- **Commit context** - when the source is a git repo, each row shows the subject of the last commit that touched the file
+- **Batch copy** - copies selected files into your project with progress display
 
 ## Installation
 
@@ -37,7 +37,7 @@ curl -fsSL https://raw.githubusercontent.com/reepolee/reesync/main/install.sh | 
 irm https://raw.githubusercontent.com/reepolee/reesync/main/install.ps1 | iex
 ```
 
-The script detects your OS and architecture, downloads the correct binary from the latest GitHub Release, and adds it to your PATH — `~/.local/bin` on macOS and Linux, `~\bin` on Windows.
+The script detects your OS and architecture, downloads the correct binary from the latest GitHub Release, and adds it to your PATH - `~/.local/bin` on macOS and Linux, `~\bin` on Windows.
 
 Or download a binary directly from the [latest release](https://github.com/reepolee/reesync/releases/latest).
 
@@ -61,7 +61,7 @@ Pass `--no-install` to skip the local install step (useful for CI).
 
 ## Usage
 
-A new starter archive was published — unpack it, then pull in what you want:
+A new starter archive was published - unpack it, then pull in what you want:
 
 ```bash
 unzip ~/Downloads/reepolee-starter.zip -d /tmp/reepolee-new
@@ -70,16 +70,16 @@ cd my-project
 reesync /tmp/reepolee-new
 ```
 
-`<TEMPLATE_DIR>` is any directory to compare against. An unpacked starter archive is the common case, but a sibling checkout of the upstream repo works the same way. reesync only reads from it — your project is the only thing ever written to.
+`<TEMPLATE_DIR>` is any directory to compare against. An unpacked starter archive is the common case, but a sibling checkout of the upstream repo works the same way. reesync only reads from it - your project is the only thing ever written to.
 
 ### Interactive workflow
 
-1. **Diff** — reesync walks both directories and identifies differing files
-2. **Browse tree** — navigate the file tree with arrow keys
-3. **Toggle files** — use the top `GLOBAL` checkbox to select or clear every folder, or press space on an individual item. New/modified files are pre-checked; deleted files (`[─] (deleted)`) are informational only and can never be copied
-4. **Ignore** — press `i` to add/remove the highlighted file in `.reesyncignore`
-5. **Confirm** — press Enter to copy selected files into your project
-6. **Done** — progress is shown per file
+1. **Diff** - reesync walks both directories and identifies differing files
+2. **Browse tree** - navigate the file tree with arrow keys
+3. **Toggle files** - use the top `GLOBAL` checkbox to select or clear every folder, or press space on an individual item. New/modified files are pre-checked; deleted files (`[─] (deleted)`) are informational only and can never be copied
+4. **Ignore** - press `i` to add/remove the highlighted file in `.reesyncignore`
+5. **Confirm** - press Enter to copy selected files into your project
+6. **Done** - progress is shown per file
 
 ### Key bindings
 
@@ -101,9 +101,9 @@ reesync /tmp/reepolee-new
 
 ### What gets compared
 
-Two categories are skipped outright — they never appear in the tree and are never synced:
+Two categories are skipped outright - they never appear in the tree and are never synced:
 
-- **Hidden files and directories** (anything starting with `.`). This is why `.reesyncignore` never syncs over itself, but it also means dotfiles like `.gitignore` are not brought over — update those by hand.
+- **Hidden files and directories** (anything starting with `.`). This is why `.reesyncignore` never syncs over itself, but it also means dotfiles like `.gitignore` are not brought over - update those by hand.
 - **Build/dependency dirs**: `.git`, `node_modules`, `target`, `vendor`, `vendors`, `dist`, `.next`, `.svelte-kit`, `.cache`, `.output`.
 
 Everything else is compared by SHA-256 content hash. If nothing differs, reesync prints `No differences found` and exits without opening the tree.
@@ -119,9 +119,9 @@ src/css/**
 *.local.json
 ```
 
-Each line is a [globset](https://docs.rs/globset) pattern matched against the project-root-relative path. Matching files are **shown but pre-unchecked**, dimmed and marked `(ignored)` — never hidden, so you still see that the starter changed them. A missing file is not an error; an invalid pattern is skipped with a warning.
+Each line is a [globset](https://docs.rs/globset) pattern matched against the project-root-relative path. Matching files are **shown but pre-unchecked**, dimmed and marked `(ignored)` - never hidden, so you still see that the starter changed them. A missing file is not an error; an invalid pattern is skipped with a warning.
 
-Press `i` to add/remove the highlighted file; on a folder, `i` toggles every file beneath it as a group. `i` manages exact-path lines only — a file matched by a broader glob reports which pattern matched, so you can edit it by hand.
+Press `i` to add/remove the highlighted file; on a folder, `i` toggles every file beneath it as a group. `i` manages exact-path lines only - a file matched by a broader glob reports which pattern matched, so you can edit it by hand.
 
 ## Design boundaries
 
@@ -142,11 +142,11 @@ anything you can read off the code:
 - Adding a config file (like `reefmt.jsonc`)
 
 **Never:**
-- Delete files from the project — deleted files are informational only
+- Delete files from the project - deleted files are informational only
 - Modify files outside the current working directory
 - Run mutating git commands (commits, pushes, branch operations). Reading commit
   subjects via `git log` for tree context is the only git use
-- Overwrite files without user confirmation — the checkbox is the confirmation
+- Overwrite files without user confirmation - the checkbox is the confirmation
 - Add network calls (clone, fetch, pull)
 
 ## Development
